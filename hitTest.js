@@ -1,3 +1,5 @@
+import Line from "./geojs/line.js";
+import Point from "./geojs/point.js";
 import Rect from "./geojs/rect.js";
 import Vector from "./geojs/vector.js";
 
@@ -17,24 +19,35 @@ export function boxToBox(a, b) {
 
 /**
  * 
- * @param {Vector} origin 
- * @param {Vector} vector 
+ * @param {Line} ray
  * @param {Rect} rect 
+ * @param {Point} contact_point 
+ * @param {Point} contact_normal 
+ * @param {Number} t_hit_near 
+ * @returns 
  */
-export function rayToBox(origin, vector, rect) {
-    const near = new Vector(rect.left, rect.top, 0); 
-    near.subtract(origin); near.divide(vector);
-    const far = new Vector(rect.right, rect.bottom, 0);
-    far.subtract(origin); far.divide(vector);
-    const near_x = Math.min(near.x, far.x);
-    const far_x  = Math.max(near.x, far.x);
-    const near_y = Math.min(near.y, far.y);
-    const far_y = Math.max(near.y, far.y);
-    if (near_x > far_y || near_y > far_x) return false;
-
-    const t_hit_near = Math.max(near.x, near.y);
-    const t_hit_far  = Math.min(far.x, far.y);
-
-    if(t_hit_far < 0) return false;
-
+export function rayToBox(ray, rect, contact_point, contact_normal, t_hit) {
+    const t_near = new Vector(...rect.top_left, 0).subtract(...ray.origin).divide(...ray.vector);
+    const t_far  = new Vector(...rect.bottom_right, 0).subtract(...ray.origin).divide(...ray.vector);
+    //sort near and far values 
+    if(t_near.x > t_far.x) [t_near.x, t_far.x] = [t_far.x, t_near.x];
+    if(t_near.y > t_far.y) [t_near.y, t_far.y] = [t_far.y, t_near.y];
+    //first failure condition - 
+    if(t_near.x > t_far.y || t_near.y > t_far.x) return false;
+    //t value for collisions
+    t_hit[0] = Math.max(t_near.x, t_near.y);
+    t_hit[1] = Math.min(t_far.x, t_far.y);
+    //check if ray is in direction for collision
+    if(t_hit[1] < 0) return false;
+    //update contact point
+    contact_point.setValue(...ray.vector).multiplyScalar(t_hit[0]).add(...ray.origin);
+    //normals
+    if(t_near.x > t_near.y) 
+        if(ray.vector[0] < 0) contact_normal.setValue(1, 0);
+        else contact_normal.setValue(-1, 0);
+    else if(t_near.x < t_near.y)
+        if(ray.vector[1] < 0) contact_normal.setValue(0, 1);
+        else contact_normal.setValue(0, -1);
+    //collision detected
+    return true;
 }
